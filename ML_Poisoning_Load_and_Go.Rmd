@@ -1,0 +1,66 @@
+---
+title: "ML_Poisoning_Load_and_Go (run me second)"
+author: "Tyler Harris"
+date: "11/30/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+# Load libraries (install if needed)
+library(tidyverse)
+library(mlbench) # need for data
+library(readr) # need for reading data
+```
+
+```{r}
+# set working directory (change yours) and set seed
+setwd("~/Desktop/Medium Articles/Code/ML Poisoning")
+set.seed(2150923)
+```
+
+```{r}
+# load the trained model
+loaded_model <- readRDS("./example_model.rds")
+```
+
+```{r}
+# load the data to be passed in
+testing_data <- read_csv("testing_data.csv")
+
+# fix data types on import
+testing_data$chas <- as.factor(testing_data$chas)
+testing_data %>% 
+  rename(
+    original_ID = X1)
+```
+
+```{r}
+# make some predictions (should match old file)
+new_preds <- predict(loaded_model, newdata = testing_data)
+
+# create results object
+results <- testing_data %>%
+  select(tract, cmedv)
+
+# assemble the results
+results$pred_vals <- round(new_preds, 1)
+head(results)
+```
+
+```{r}
+# look at differences in absolute value (reality - pred)
+results$differences <- abs(results$cmedv - results$pred_vals)
+results
+```
+
+```{r}
+# average amount of differences (should match original)
+mean(results$differences)
+
+# For best results, clear the environment before moving on
+```
+

@@ -1,0 +1,125 @@
+---
+title: "ML_Poisoning_Setup (run me first)"
+author: "Tyler Harris"
+date: "11/30/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+# Load libraries (install if needed)
+# install.packages("tidyverse")
+# install.packages("mlbench")
+
+library(tidyverse) # need for functions
+library(mlbench) # need for data
+```
+
+```{r}
+# set working directory (change yours) and set seed
+setwd("~/Desktop/Medium Articles/Code/ML Poisoning")
+set.seed(2150923)
+```
+
+```{r}
+# Import Data
+data(BostonHousing2)
+```
+
+```{r}
+# Clean up data
+clean_data <- BostonHousing2 %>% 
+  select(tract, cmedv, crim, zn, indus, chas, nox, rm, age, dis, rad, tax, ptratio, b, lstat)
+
+# check the data
+head(clean_data)
+```
+
+```{r}
+# split data to train and test
+train <- sample_frac(clean_data, size = .8)
+test <- anti_join(clean_data, train, by = "tract")
+
+# check the data
+head(train)
+head(test)
+```
+
+```{r}
+# make basic model
+lm1 <- lm(cmedv ~ . - tract, data = train)
+
+# look at the results
+summary(lm1)
+
+# follow step-wise regression to remove insignificant predictors. Remove age first
+```
+
+```{r}
+# model removing age
+lm2 <- lm(cmedv ~ . - tract - age, data = train)
+
+# look at the results
+summary(lm2)
+
+# follow step-wise regression to remove insignificant predictors. Remove indus next
+```
+
+```{r}
+# model removing age and indus
+lm3 <- lm(cmedv ~ . - tract - age - indus, data = train)
+
+# look at the results
+summary(lm3)
+
+# lm3 has only significant predictors
+```
+
+```{r}
+# make some predictions
+init_preds <- predict(lm3, newdata = test)
+
+# create results object
+results <- test %>%
+  select(tract, cmedv)
+
+# assemble the results
+results$pred_vals <- round(init_preds, 1)
+head(results)
+```
+
+```{r}
+# look at differences in absolute value (reality - pred)
+results$differences <- abs(results$cmedv - results$pred_vals)
+results
+```
+
+```{r}
+# plot the model
+ggplot(lm3$model, aes_string(x = names(lm3$model)[15], y = names(lm3$model)[1])) + 
+  geom_point() +
+  stat_smooth(method = "lm", col = "red") +
+  labs(title = paste("Adj R2 = ",signif(summary(lm3)$adj.r.squared, 5),
+                     "Intercept =",signif(lm3$coef[[1]],5 ),
+                     " Slope =",signif(lm3$coef[[2]], 5),
+                     " P =",signif(summary(lm3)$coef[2,4], 5)))
+```
+
+
+```{r}
+# average amount of differences
+mean(results$differences)
+```
+
+```{r}
+# save the best model for later use
+saveRDS(lm3, "./example_model.rds")
+
+# save test data as csv for later import
+write.csv(test,"testing_data.csv")
+
+# For best results, clear the environment before moving on
+```
